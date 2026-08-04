@@ -134,11 +134,10 @@ function getProcessedLinks(sheet) {
 }
 
 function callGeminiForReplies(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const models = ["gemini-3.6-flash", "gemini-flash-latest"];
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
 
   for (let m of models) {
-    const targetUrl = url.replace("gemini-3.6-flash", m);
+    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_API_KEY}`;
     const payload = { contents: [{ parts: [{ text: prompt }] }] };
     const options = {
       method: "POST",
@@ -159,7 +158,7 @@ function callGeminiForReplies(prompt) {
         return text;
       }
     } catch (e) {
-      console.log(`Reply fallback error: ${e.toString()}`);
+      console.log(`Reply fallback error for ${m}: ${e.toString()}`);
     }
   }
   return null;

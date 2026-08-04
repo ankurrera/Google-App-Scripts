@@ -18,8 +18,8 @@ flowchart TD
     end
 
     subgraph External APIs & Signals
-        G1[Gemini 2.0 / 3.6 Flash AI]
-        G2[GitHub REST API - Private & Public]
+        G1[Gemini 2.0 / 1.5 Flash AI]
+        G2[GitHub REST API - Authenticated /user/events & /users/events]
         G3[RapidAPI Twitter Scraper API]
     end
 
@@ -47,12 +47,12 @@ flowchart TD
 
 ### 2. ☀️ Afternoon Builder Debate (`generateAndPostInteractiveTweet`) — 1:00 PM IST
 * **Style**: Short, punchy, conversational tech choices and polls designed to drive comment replies (the highest-ranking metric in the X algorithm).
-* **Themes**: Tabs vs Spaces, Vercel vs Self-hosting, Tailwind vs CSS Modules, Supabase vs Firebase.
+* **Themes**: Next.js App Router vs Pages Router, Vercel vs Self-hosting, Tailwind vs Styled Components, Supabase vs Postgres.
 
 ### 3. 🌇 Evening GitHub Dev Journal (`runGitHubDevJournal`) — 6:00 PM IST
 * **Style**: Automated proof-of-work "Shipped Today" dev log.
-* **Action**: Connects to the GitHub API via Personal Access Token (`GITHUB_TOKEN`), scans commits/PRs/releases from the last 24 hours across private, public, and organization repos, filters out trivial commits (`typo`, `lint`, `bump`), and uses Gemini AI to synthesize meaningful progress into a single post.
-* **Safety**: If no code was pushed that day, it quietly exits without posting.
+* **Action**: Connects to the GitHub API via Personal Access Token (`GITHUB_TOKEN`), checks `/user/events` for commits/PRs/releases/new repos across private, public, and organization repos, filters out trivial commits (`typo`, `lint`, `bump`), and uses Gemini AI to synthesize meaningful progress into a single post.
+* **Fallback Guarantee**: If no code was pushed that day, it automatically generates a high-value "Deep Work / Code Refactoring / Architecture Polish" log so daily posting NEVER halts.
 
 ### 4. 🎯 Target Account Engagement Digest (`generateXEngagementReplies`) — 8:00 AM IST
 * **Action**: Uses **RapidAPI Twitter API** to fetch live tweets posted within the **last 48 hours** from target tech creators (`@levelsio`, `@dhh`, `@shl`, `@Nutlope`, `@rauchg`, `@leeerob`).
@@ -73,11 +73,6 @@ const RAPIDAPI_KEY     = "YOUR_RAPIDAPI_KEY";
 const SPREADSHEET_ID   = "1Y6s1Cw_FnJJpHaLqs2GuCqJruxlCPDee9q-PchI-8t0";
 ```
 
-### GitHub Token Permissions (For Private & Org Repos):
-To monitor private repositories, generate a Personal Access Token on GitHub with:
-- **Fine-grained Token**: `Contents: Read-only`, `Pull requests: Read-only`
-- **Classic Token**: `repo` (Full control of private repositories)
-
 ---
 
 ## ⏰ Apps Script Trigger Configuration
@@ -93,19 +88,18 @@ In your Google Apps Script project, navigate to **Triggers (⏰)** and add the f
 
 ---
 
-## 🛡️ Safety & Anti-Shadowban Compliance
+## 🛡️ Webhook Payload & Buffer Compatibility
 
-1. **Original Posts Only**: Automated posting to your own timeline is explicitly allowed by X terms under "Automated App / Bot".
-2. **No Automated Reply Bots**: Replies are drafted into your Google Sheet for manual 1-click posting to prevent X's anti-spam filters from flagging your account.
-3. **Random Seed Variation**: All Gemini prompts use dynamic variation seeds so content is never repeated, preventing Buffer `DuplicateDataError` (400) failures.
-
----
-
-## 📄 File Structure
-
-- **`Code.gs`**: Core automation script (Morning Tip, Afternoon Debate, Evening GitHub Dev Journal, Gemini AI helper, Webhook poster).
-- **`TrendsDigest.gs`**: RapidAPI X target account tracker & Google Sheets logger.
-- **`README.md`**: Complete documentation & architecture guide.
+To prevent Make.com & Buffer `BundleValidationError: Missing value of required parameter 'text'`, the webhook payload sends sanitized text across standard parameter aliases:
+```json
+{
+  "text": "Shipped a backend optimization today ⚡️...",
+  "content": "Shipped a backend optimization today ⚡️...",
+  "status": "Shipped a backend optimization today ⚡️...",
+  "tweet": "Shipped a backend optimization today ⚡️...",
+  "message": "Shipped a backend optimization today ⚡️..."
+}
+```
 
 ---
 
