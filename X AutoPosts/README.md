@@ -18,7 +18,7 @@ flowchart TD
     end
 
     subgraph External APIs & Signals
-        G1[Gemini 2.0 / 1.5 Flash AI]
+        G1[Gemini 2.5 / 1.5 Flash AI]
         G2[GitHub REST API - Authenticated /user/events & /users/events]
         G3[RapidAPI Twitter Scraper API]
     end
@@ -42,8 +42,8 @@ flowchart TD
 
 ### 1. 🌅 Morning Builder Tip (`generateAndPostAITweet`) — 9:00 AM IST
 * **Style**: Inspired by **[@buildwithsid](https://x.com/buildwithsid)** — aesthetic, high-value, full-stack indie hacker insights.
-* **Topics**: Next.js App Router tricks, Framer Motion micro-animations, Tailwind CSS UI hacks, TypeScript architecture, and indie shipping stacks.
-* **Format**: Actionable hook + 2-3 bulleted insights + community question + hashtags (`#buildinpublic #nextjs #webdev #indiehackers`).
+* **Topics**: Next.js Server Actions, Framer Motion 60fps micro-animations, Tailwind UI hacks, TypeScript architecture, and indie shipping stacks.
+* **Format**: Scroll-stopping hook + 2-3 punchy technical insights (authentic human tone, zero hashtags, zero bot fluff).
 
 ### 2. ☀️ Afternoon Builder Debate (`generateAndPostInteractiveTweet`) — 1:00 PM IST
 * **Style**: Short, punchy, conversational tech choices and polls designed to drive comment replies (the highest-ranking metric in the X algorithm).

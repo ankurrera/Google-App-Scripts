@@ -5,6 +5,7 @@
 
 const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
 const BATCH_SIZE = 100;
+const TRIGGER_MAX_THREADS_PER_RUN = 100; // Cap per trigger run to prevent daily quota exhaustion
 
 /**
  * Ideal Taxonomy Candidates
@@ -33,35 +34,62 @@ const DEFAULT_TAXONOMY = [
   "Personal/General"
 ];
 
-// In-Memory Cache for Gmail Label Objects
-const labelCache = {};
+// In-Memory Cache for Gmail Label Objects across single execution
+let labelCacheMap = null;
 
 /**
- * LAZY LABEL CREATOR: Creates parent/child labels ON-DEMAND
+ * BULK LABEL PRE-FETCHER: Loads all existing user labels once into memory
+ */
+function initLabelCache() {
+  if (labelCacheMap !== null) return;
+  labelCacheMap = {};
+  try {
+    const existing = GmailApp.getUserLabels();
+    for (let i = 0; i < existing.length; i++) {
+      labelCacheMap[existing[i].getName()] = existing[i];
+    }
+  } catch (e) {
+    console.warn("⚠️ Could not pre-fetch labels: " + e.toString());
+  }
+}
+
+/**
+ * LAZY LABEL CREATOR: Creates parent/child labels ON-DEMAND without redundant API calls
  */
 function getCachedLabel(labelName) {
-  if (labelCache[labelName]) {
-    return labelCache[labelName];
+  initLabelCache();
+  if (labelCacheMap && labelCacheMap[labelName]) {
+    return labelCacheMap[labelName];
   }
 
-  const parts = labelName.split("/");
-  const parentGroup = parts[0];
-
-  // Ensure Parent Label exists when assigning
-  if (!GmailApp.getUserLabelByName(parentGroup)) {
-    GmailApp.createLabel(parentGroup);
-    console.log(`📁 Created Parent Label Group on demand: [${parentGroup}]`);
+  let label = null;
+  try {
+    label = GmailApp.getUserLabelByName(labelName);
+    if (!label) {
+      label = GmailApp.createLabel(labelName);
+      console.log(` └─ 🏷️ Created Label on demand: [${labelName}]`);
+    }
+  } catch (e) {
+    console.error(`Error fetching/creating label [${labelName}]: ` + e.toString());
   }
 
-  // Ensure Child Label exists when assigning
-  let label = GmailApp.getUserLabelByName(labelName);
-  if (!label) {
-    label = GmailApp.createLabel(labelName);
-    console.log(` └─ 🏷️ Created Child Label on demand: [${labelName}]`);
+  if (labelCacheMap && label) {
+    labelCacheMap[labelName] = label;
   }
-
-  labelCache[labelName] = label;
   return label;
+}
+
+/**
+ * Safely extracts clean text snippet from a Gmail message
+ */
+function getMessageSnippet(message) {
+  if (!message) return "";
+  try {
+    const plainBody = message.getPlainBody() || "";
+    return plainBody.substring(0, 300).replace(/\s+/g, ' ').trim();
+  } catch (e) {
+    return "";
+  }
 }
 
 // ======================================================================
@@ -85,7 +113,6 @@ function analyzeInboxAndCreateLabels() {
   const batchSize = 100;
   const maxEmailsToScan = 10000;
   const maxExecutionMs = 4 * 60 * 1000;
-  let isFinished = false;
 
   try {
     while (start < maxEmailsToScan) {
@@ -97,7 +124,6 @@ function analyzeInboxAndCreateLabels() {
 
       const threads = GmailApp.search("in:inbox", start, batchSize);
       if (!threads || threads.length === 0) {
-        isFinished = true;
         userProperties.deleteProperty("LAST_ANALYZED_INDEX");
         console.log(`🎉 Complete inbox corpus scan finished! Reached end of inbox at thread #${start}.`);
         break;
@@ -109,11 +135,9 @@ function analyzeInboxAndCreateLabels() {
         if (!messages || messages.length === 0) continue;
 
         const firstMsg = messages[0];
-        const lastMsg = messages[messages.length - 1];
         const subject = firstMsg.getSubject() || "";
         const from = firstMsg.getFrom() || "";
-        const snippet = (firstMsg.getPlainBody() || "").substring(0, 200).replace(/\s+/g, ' ');
-        const body = lastMsg.getPlainBody() || snippet;
+        const snippet = getMessageSnippet(firstMsg);
 
         // Extract sender domain
         const domainMatch = from.match(/@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
@@ -123,7 +147,7 @@ function analyzeInboxAndCreateLabels() {
         }
 
         // Categorize using Gemini AI if key is present, else rule engine
-        let category = getCategoryForEmail(from, subject, snippet, body);
+        let category = getCategoryForEmail(from, subject, snippet, snippet);
 
         if (category) {
           activeCategoryCounts[category] = (activeCategoryCounts[category] || 0) + 1;
@@ -227,7 +251,7 @@ function setupJobStatusLabels() {
  */
 function getCategoryForEmail(from, subject, snippet, body) {
   // Fast OTP / Security Check
-  const text = (from + " " + subject + " " + body).toLowerCase();
+  const text = (from + " " + subject + " " + (snippet || body || "")).toLowerCase();
   const subjectLower = subject.toLowerCase();
 
   if (text.includes("verification code") || text.includes("one-time password") || text.includes("your code is") || /\b(otp|2fa code)\b/i.test(subjectLower)) {
@@ -241,38 +265,43 @@ function getCategoryForEmail(from, subject, snippet, body) {
   }
 
   // Secondary: High-Precision Rules Engine
-  return categorizeByRules(from, subject, body);
+  return categorizeByRules(from, subject, body || snippet);
 }
 
 /**
- * MAIN FUNCTION (Run by 10-min trigger): Processes unlabeled inbox threads.
+ * MAIN FUNCTION (Run by 10/15-min trigger): Processes a safe, quota-budgeted batch of inbox threads.
  */
 function fixAndLabelInbox() {
-  labelAll2000InboxEmails();
+  labelAll2000InboxEmails(TRIGGER_MAX_THREADS_PER_RUN);
 }
 
 /**
  * FAST MASS LABELER: Directly queries UNLABELED inbox emails (-has:userlabel)
- * so every batch processes 100% new, unlabeled emails without wasting time re-scanning!
+ * Uses batch budgeting and lightweight snippet reads to stay well within daily Gmail quotas!
+ *
+ * @param {number} maxThreadsToProcess Max threads to process in this execution (default: 100).
  */
-function labelAll2000InboxEmails() {
-  console.log("🚀 Starting FAST MASS LABELING of unlabeled inbox emails...");
+function labelAll2000InboxEmails(maxThreadsToProcess) {
+  const maxThreads = maxThreadsToProcess || TRIGGER_MAX_THREADS_PER_RUN || 100;
+  console.log(`🚀 Starting FAST MASS LABELING of unlabeled inbox emails (Cap: ${maxThreads} threads for this run)...`);
+
   const startTime = new Date().getTime();
-  const maxExecutionMs = 4 * 60 * 1000;
+  const maxExecutionMs = 2 * 60 * 1000; // 2-minute safe window per run
   let totalLabeled = 0;
-  const batchSize = 100;
+  const batchSize = Math.min(50, maxThreads);
 
   try {
-    while (true) {
+    while (totalLabeled < maxThreads) {
       if (new Date().getTime() - startTime > maxExecutionMs) {
-        console.warn("⏱️ Reached 4-minute safe limit. Run labelAll2000InboxEmails again to process remaining emails.");
+        console.warn(`⏱️ Reached 2-minute safe execution window. Processed ${totalLabeled} threads in this run.`);
         break;
       }
 
+      const fetchLimit = Math.min(batchSize, maxThreads - totalLabeled);
       // DIRECT UNLABELED QUERY: Gets ONLY unlabeled threads!
-      const threads = GmailApp.search("in:inbox -has:userlabel", 0, batchSize);
+      const threads = GmailApp.search("in:inbox -has:userlabel", 0, fetchLimit);
       if (!threads || threads.length === 0) {
-        console.log("🎉 ALL inbox emails are completely labeled!");
+        console.log("🎉 ALL inbox emails are completely labeled! No remaining unlabeled emails found.");
         break;
       }
 
@@ -284,13 +313,11 @@ function labelAll2000InboxEmails() {
         if (!messages || messages.length === 0) continue;
 
         const firstMsg = messages[0];
-        const lastMsg = messages[messages.length - 1];
         const subject = firstMsg.getSubject() || "";
         const from = firstMsg.getFrom() || "";
-        const snippet = (firstMsg.getPlainBody() || "").substring(0, 200).replace(/\s+/g, ' ');
-        const body = lastMsg.getPlainBody() || snippet;
+        const snippet = getMessageSnippet(firstMsg);
 
-        const category = getCategoryForEmail(from, subject, snippet, body) || "Updates/Notifications";
+        const category = getCategoryForEmail(from, subject, snippet, snippet) || "Updates/Notifications";
 
         if (!categoryMap[category]) categoryMap[category] = [];
         categoryMap[category].push(thread);
@@ -302,20 +329,41 @@ function labelAll2000InboxEmails() {
         const targetThreads = categoryMap[catName];
         if (targetThreads && targetThreads.length > 0) {
           const label = getCachedLabel(catName);
-          label.addToThreads(targetThreads);
-          chunkLabeled += targetThreads.length;
+          if (label) {
+            label.addToThreads(targetThreads);
+            chunkLabeled += targetThreads.length;
+          }
         }
       }
 
+      if (chunkLabeled === 0) {
+        console.warn("⚠️ No threads were labeled in this chunk. Breaking to prevent infinite retry.");
+        break;
+      }
+
       totalLabeled += chunkLabeled;
-      console.log(`⚡ Labeled ${chunkLabeled} new threads... (Total so far: ${totalLabeled} threads)`);
+      console.log(`⚡ Labeled ${chunkLabeled} new threads... (Run progress: ${totalLabeled}/${maxThreads})`);
     }
 
-    console.log(`\n🎉 MASS LABELING BATCH COMPLETE! Processed and labeled ${totalLabeled} inbox threads.`);
+    // Check remaining count
+    let remainingEstimate = 0;
+    try {
+      const remainingThreads = GmailApp.search("in:inbox -has:userlabel", 0, 1);
+      remainingEstimate = remainingThreads ? remainingThreads.length : 0;
+    } catch (e) {
+      // ignore
+    }
+
+    console.log(`\n🎉 MASS LABELING BATCH COMPLETE! Processed and labeled ${totalLabeled} threads in this run.`);
+    if (remainingEstimate > 0) {
+      console.log(`📌 Unlabeled emails remain in inbox. The next scheduled trigger run will process the next batch!`);
+    } else {
+      console.log(`✨ Inbox completely labeled!`);
+    }
 
   } catch (err) {
     if (err.toString().includes("Service invoked too many times")) {
-      console.warn("⚠️ Gmail daily API quota limit reached. Google will reset quota in ~24 hours.");
+      console.warn("⚠️ Gmail daily API quota limit reached. Execution paused safely. Google will reset quota automatically.");
     } else {
       console.error("Error in labelAll2000InboxEmails: " + err.toString());
     }
@@ -349,13 +397,11 @@ function relabelInboxThreads() {
         if (!messages || messages.length === 0) continue;
 
         const firstMsg = messages[0];
-        const lastMsg = messages[messages.length - 1];
         const subject = firstMsg.getSubject() || "";
         const from = firstMsg.getFrom() || "";
-        const snippet = (firstMsg.getPlainBody() || "").substring(0, 200).replace(/\s+/g, ' ');
-        const body = lastMsg.getPlainBody() || snippet;
+        const snippet = getMessageSnippet(firstMsg);
 
-        const correctCategory = getCategoryForEmail(from, subject, snippet, body);
+        const correctCategory = getCategoryForEmail(from, subject, snippet, snippet);
         if (!correctCategory) continue;
 
         const existingLabels = thread.getLabels();
@@ -371,13 +417,15 @@ function relabelInboxThreads() {
         // If label is wrong or missing, update it!
         if (currentLabelName !== correctCategory) {
           if (currentLabelName) {
-            const oldLabel = GmailApp.getUserLabelByName(currentLabelName);
+            const oldLabel = getCachedLabel(currentLabelName);
             if (oldLabel) thread.removeLabel(oldLabel);
           }
           const newLabel = getCachedLabel(correctCategory);
-          thread.addLabel(newLabel);
-          updatedCount++;
-          console.log(`🔧 Fixed: "${subject.substring(0, 40)}" -> Re-labeled to [${correctCategory}]`);
+          if (newLabel) {
+            thread.addLabel(newLabel);
+            updatedCount++;
+            console.log(`🔧 Fixed: "${subject.substring(0, 40)}" -> Re-labeled to [${correctCategory}]`);
+          }
         }
       }
       start += batchSize;

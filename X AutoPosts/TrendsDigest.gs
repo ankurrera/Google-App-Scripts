@@ -44,15 +44,17 @@ function generateXEngagementReplies() {
 
     console.log(`🤖 Drafting reply for @${handle} (${tweet.pubDate}): "${tweet.title.substring(0, 40)}..."`);
 
-    const prompt = `You are a helpful, senior developer and creator on X (Twitter).
+    const prompt = `You are a senior full-stack developer and indie creator on X (Twitter).
 Draft a high-value, authentic reply to this tweet by @${handle}:
 
 Tweet: "${tweet.title}"
 
-CRITICAL REQUIREMENTS:
-1. Tone: Friendly, insightful, supporting their view, or adding a quick value-add technical tip. No hype, no fluff, no AI buzzwords (like 'delve', 'testament').
-2. Length: Under 220 characters TOTAL (including tags/emojis) so it fits in the X reply box.
-3. Output format: Return ONLY the raw reply text. Do not wrap in quotes.`;
+HUMAN & VIRAL VOICE INSTRUCTIONS:
+1. Tone: Friendly, insightful, agreeing with a sharp point or adding a quick value-add technical perspective.
+2. Sound like a developer replying naturally in a thread.
+3. STRICTLY BANNED: No hashtags, no bot fluff, no AI buzzwords ("game-changer", "delve", "testament", "elevate", "seamless").
+4. Length: Under 200 characters TOTAL.
+5. Output format: Return ONLY raw reply text without quotes.`;
 
     const suggestedReply = callGeminiForReplies(prompt);
 
@@ -134,7 +136,13 @@ function getProcessedLinks(sheet) {
 }
 
 function callGeminiForReplies(prompt) {
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+  const models = [
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-flash-latest"
+  ];
 
   for (let m of models) {
     const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${GEMINI_API_KEY}`;

@@ -22,12 +22,14 @@ function setupCredentials(githubToken, geminiApiKey, makeWebhookUrl) {
 
 // Topics inspired by @buildwithsid (Next.js, UI/UX, Framer Motion, Tailwind, Indie Hacking)
 const TOPICS = [
-  "Next.js App Router performance optimizations and server actions tricks",
-  "Building buttery smooth micro-animations using Framer Motion and Tailwind CSS",
-  "Indie hacker stack: Next.js + Supabase + Vercel + Tailwind for fast shipping",
-  "UI/UX micro-interactions that make web apps feel ultra-premium",
-  "Building enterprise AI tools & full-stack SaaS apps from scratch",
-  "Clean code architecture and component design for React & TypeScript developers"
+  "Next.js Server Actions vs traditional REST APIs for fast full-stack shipping",
+  "Building 60fps micro-animations with Framer Motion and Tailwind CSS",
+  "The $0 to $10k/mo indie hacker stack: Next.js + Supabase + Vercel + Tailwind",
+  "UI/UX micro-details: 1px border highlights, spring physics, dynamic sub-menus, and glassmorphism",
+  "Replacing heavy npm dependencies with clean native Web APIs (Web Crypto, URLSearchParams, native fetch)",
+  "React & TypeScript patterns that eliminate 50% of boilerplate code",
+  "Database architecture for solo founders: SQLite/Postgres vs complex ORM abstractions",
+  "Why optimistic UI updates and skeleton states make web apps feel instant"
 ];
 
 // ======================================================================
@@ -39,19 +41,21 @@ function generateAndPostAITweet() {
   const randomTopic = TOPICS[Math.floor(Math.random() * TOPICS.length)];
   const randomSeed = Math.floor(Math.random() * 100000);
 
-  const prompt = `You are @ankurrera, a top-tier Full-Stack Developer and Indie Hacker building modern web apps in public (inspired by the aesthetics and shipping style of @buildwithsid).
+  const prompt = `You are @ankurrera, a senior Full-Stack Engineer & Indie Hacker building aesthetic web apps in public.
+Write a single viral, highly engaging X (Twitter) post about: "${randomTopic}". (Seed: ${randomSeed}).
 
-Write a single viral, highly engaging tweet about: "${randomTopic}". (Variation ID: ${randomSeed}).
-
-STYLE & FORMAT REQUIREMENTS:
-1. Hook: Start with a crisp, confident builder statement (e.g., "Shipped a quick optimization today ⚡️" or "Stop overcomplicating [topic] in Next.js.").
-2. Body: Share 2-3 clean, bulleted actionable points or code insights. Emphasize speed, aesthetic UI, and clean code.
-3. Tone: Casual, builder-focused, passionate about UI/UX and shipping software. NOT corporate, NOT salesy.
-4. Closing: End with a quick question to fellow builders (e.g. "What are you shipping today? 👇" or "Thoughts on this stack?").
-5. Emojis: Use 2-3 natural tech emojis (⚡️, 🎨, 🚀, 🛠️).
-6. Hashtags: Include 2 hashtags from: #buildinpublic #nextjs #webdev #indiehackers #UIUX.
-7. STRICT LENGTH: Under 250 characters TOTAL.
-8. Output format: Return ONLY raw tweet text without quotes or markdown code blocks.`;
+HUMAN & VIRAL VOICE INSTRUCTIONS:
+1. Write like a real developer tweeting from their IDE, NOT an AI social media bot.
+2. HOOK FIRST: Start with a powerful, scroll-stopping first line (a hot take, a counter-intuitive truth, a sharp observation, or a real engineering win).
+3. BODY: 2-3 short, punchy lines sharing genuine technical substance, speed hacks, or UI polish details. Keep line spacing clean.
+4. TONE: Authentic, technical, confident builder vibe.
+5. STRICTLY BANNED:
+   ❌ NO HASHTAGS AT ALL (hashtags look like automated spam on X).
+   ❌ NO EMOJI BULLET LIST DUMPS (e.g. no "• ⚡️ ... \\n • 🎨 ...").
+   ❌ NO AI BUZZWORDS ("game-changer", "delve", "elevate", "superpower", "seamless", "stop overcomplicating").
+   ❌ NO FORCED CTA QUESTIONS ("What are you building today? 👇"). End naturally or with a provocative developer thought.
+6. LENGTH: 180 to 240 characters TOTAL.
+7. OUTPUT FORMAT: Return ONLY raw post text without quotes or markdown code blocks.`;
 
   let tweetText = callGeminiAI(prompt);
 
@@ -77,24 +81,27 @@ function generateAndPostInteractiveTweet() {
 
   const randomSeed = Math.floor(Math.random() * 100000);
 
-  const prompt = `You are @ankurrera, an Indie Hacker and Full-Stack Developer on X.
-Write a short, engaging builder debate or tech choice question (inspired by @buildwithsid). (Variation ID: ${randomSeed}).
+  const prompt = `You are @ankurrera, an Indie Hacker & Full-Stack Developer on X.
+Write a short, punchy developer debate or controversial tech choice question that makes devs immediately want to reply in the comments. (Seed: ${randomSeed}).
 
-Themes:
-- Next.js App Router vs Pages Router for new SaaS
-- Tailwind CSS vs Styled Components for modern UI
-- Vercel vs Self-hosting on Hetzner/AWS
-- Supabase vs Firebase vs PostgreSQL
-- Framer Motion vs pure CSS keyframes
+Debate angles:
+- Next.js Server Actions vs traditional REST/tRPC APIs
+- Tailwind CSS vs CSS Modules / Styled Components for long-term scalability
+- Vercel serverless vs $40/mo self-hosted Hetzner VPS for production apps
+- Supabase / raw Postgres vs ORM abstractions (Prisma / Drizzle)
+- Framer Motion vs pure CSS keyframes / spring physics for 60fps UI
+- Monorepo vs separate repos for fast MVP shipping
 
-CRITICAL REQUIREMENTS:
-1. Format: Start directly with the question or builder choice.
-2. Tone: Casual, indie hacker community vibe.
-3. Call to Action: Ask builders to share their choice and why in the replies.
-4. Length: Short (<180 characters) so it's readable at a glance.
-5. Emojis: 1-2 modern emojis (⚡️, ⚔️, 🛠️).
-6. Hashtags: #buildinpublic or #webdev.
-7. Output format: Return ONLY raw tweet text without quotes or markdown backticks.`;
+HUMAN & VIRAL VOICE INSTRUCTIONS:
+1. Sound like a real developer asking their peers on X or Discord, not an automated poll.
+2. Frame it around real trade-offs (e.g., dev velocity vs maintenance cost).
+3. Ask directly and authentically.
+4. STRICTLY BANNED:
+   ❌ NO HASHTAGS.
+   ❌ NO AI BUZZWORDS.
+   ❌ NO BOT-LIKE DUMPS.
+5. LENGTH: Under 180 characters TOTAL.
+6. OUTPUT FORMAT: Return ONLY raw tweet text without quotes or markdown code blocks.`;
 
   let tweetText = callGeminiAI(prompt);
 
@@ -311,35 +318,38 @@ function synthesizeDevJournalWithGemini(activityData) {
 
   if (activityData && activityData.length > 0) {
     const activitySummary = activityData.map(a => `[Repo: ${a.repo}] (${a.type}): ${a.message}`).join("\n");
-    prompt = `You are @ankurrera, an Indie Hacker & Full-Stack Developer documenting your daily progress (style of @buildwithsid). (Seed: ${randomSeed}).
+    prompt = `You are @ankurrera, an Indie Hacker & Full-Stack Developer sharing daily proof-of-work on X. (Seed: ${randomSeed}).
 
-Below is raw development activity from my GitHub repositories today:
+GitHub Activity Today:
 ${activitySummary}
 
 INSTRUCTIONS:
-1. Synthesize these code updates into ONE single, natural "Shipped Today" progress log.
-2. Style: Start with a crisp shipping hook (e.g. "Shipped a major backend optimization today ⚡️" or "Building out [feature] in Next.js...").
-3. Content: Highlight what was built or improved (e.g. UI/UX polish, performance wins, architecture, bug fixes).
-4. Tone: Authentic proof of work, technical, builder vibe.
-5. Emojis: 1-2 modern emojis (⚡️, 🎨, 🛠️).
-6. Hashtags: Include #buildinpublic #webdev at the end.
-7. STRICT LENGTH: Under 250 characters TOTAL.
-8. Output format: Return ONLY raw tweet text without quotes or code blocks.`;
+1. Synthesize these code updates into a crisp, natural "Shipped today" tweet.
+2. HOOK: Start with a strong shipping hook (e.g. "Shipped a major backend refactor today" or "Optimized dynamic routes & trimmed 40kb off client bundle").
+3. CONTENT: Share 2 specific technical wins (e.g., UI polish, state optimization, data fetching speed, bug fixes).
+4. TONE: Casual, technical, authentic builder proof-of-work.
+5. STRICTLY BANNED:
+   ❌ NO HASHTAGS.
+   ❌ NO AI BUZZWORDS ("game-changer", "delve", "superpower", etc.).
+   ❌ NO GENERIC EMOJI BULLET LISTS.
+6. LENGTH: Under 240 characters TOTAL.
+7. OUTPUT FORMAT: Return ONLY raw post text without quotes or markdown code blocks.`;
   } else {
     // High-value fallback dev journal when 0 commits pushed today
-    prompt = `You are @ankurrera, an Indie Hacker & Full-Stack Developer documenting daily deep work and engineering progress on X (inspired by @buildwithsid). (Seed: ${randomSeed}).
+    prompt = `You are @ankurrera, an Indie Hacker & Full-Stack Developer sharing daily proof-of-work on X. (Seed: ${randomSeed}).
 
 Today was a deep focus refactoring and system architecture day across Next.js and full-stack web projects.
 
 INSTRUCTIONS:
-1. Write a single "Shipped Today" / "Deep Work Log" tweet about modern web app engineering (e.g., refactoring state management, optimizing server actions, polishing UI component library, or database queries).
-2. Style: Start with a crisp builder hook (e.g. "Deep work day: refactoring core architecture ⚡️" or "Focused on UI micro-interactions & code cleanup today 🛠️").
-3. Content: Mention 2 key technical focus areas in a clean, aesthetic builder style.
-4. Tone: Authentic proof of work, passionate about engineering quality.
-5. Emojis: 1-2 modern emojis (⚡️, 🎨, 🛠️).
-6. Hashtags: Include #buildinpublic #webdev at the end.
-7. STRICT LENGTH: Under 250 characters TOTAL.
-8. Output format: Return ONLY raw tweet text without quotes or markdown code blocks.`;
+1. Write an authentic, human "Shipped today" / "Deep work log" tweet.
+2. Highlight real dev details (e.g., refactoring auth flows, optimizing dynamic routes, polishing UI component tokens, or database indexing).
+3. Sound like a real dev closing their IDE after a solid coding session.
+4. STRICTLY BANNED:
+   ❌ NO HASHTAGS.
+   ❌ NO AI BUZZWORDS.
+   ❌ NO GENERIC EMOJI BULLET LISTS.
+5. LENGTH: Under 240 characters TOTAL.
+6. OUTPUT FORMAT: Return ONLY raw post text without quotes or markdown code blocks.`;
   }
 
   return callGeminiAI(prompt);
@@ -351,10 +361,11 @@ INSTRUCTIONS:
 
 function callGeminiAI(prompt) {
   const models = [
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
     "gemini-flash-latest",
-    "gemini-1.5-flash-latest",
     "gemini-pro-latest"
   ];
 
@@ -409,18 +420,18 @@ function callGeminiAI(prompt) {
 
 function generateFallbackMorningTip(topic) {
   const tips = [
-    `Shipped a major UI polish today ⚡️\n\n• Next.js Server Actions for instant updates\n• Framer Motion micro-interactions for feel\n• Tailwind CSS container queries for responsive layout\n\nSpeed + clean UI is the indie hacker superpower. What are you building today? 👇 #buildinpublic #nextjs`,
-    `Stop overcomplicating state management in React 🚀\n\n• Use URL searchParams for shareable view state\n• Server components for initial payload\n• Optimistic UI updates for instant feedback\n\nKeep your component tree lightweight. #buildinpublic #webdev`,
-    `Indie Hacker UI tip 🎨\n\n• Backdrop blur + subtle 1px borders > heavy drop shadows\n• Monospace fonts for numbers and code tags\n• Smooth 150ms transitions on interactive elements\n\nMicro-details make web apps feel ultra-premium. #UIUX #buildinpublic`
+    `Unpopular opinion: Most web app speed issues aren't framework bugs.\n\nThey're unoptimized images, unindexed SQL queries, and blocking waterfall fetches.\n\nFix those three and your Next.js app feels instant.`,
+    `The difference between an amateur side project and a $50k SaaS UI:\n\n1px border highlights over heavy shadows, spring physics on micro-interactions, and instant optimistic updates.`,
+    `Replaced 3 heavy npm packages with 25 lines of native Javascript today.\n\nSmaller client bundle, zero supply chain risk, faster page loads.\n\nDefaulting to web standards always wins.`
   ];
   return tips[Math.floor(Math.random() * tips.length)];
 }
 
 function generateFallbackDebateTweet() {
   const debates = [
-    `Next.js App Router vs Pages Router for a new full-stack SaaS in 2026? ⚡️\n\nApp Router Server Actions speed up shipping, but Pages Router is battle-tested.\n\nWhich one are you reaching for first? 👇 #buildinpublic #webdev`,
-    `Tailwind CSS vs pure CSS Modules for scalable design systems? ⚔️\n\nTailwind gives insane dev velocity, but CSS modules keep styles fully isolated.\n\nWhat's your go-to stack? 👇 #webdev #buildinpublic`,
-    `Supabase vs Firebase vs raw PostgreSQL for fast MVP launches? 🛠️\n\nSupabase gives real-time + Postgres power out of the box.\n\nWhat are you shipping on today? 👇 #indiehackers #buildinpublic`
+    `Next.js Server Actions vs traditional REST / tRPC APIs for a new SaaS?\n\nServer Actions speed up shipping by 2x, but REST feels cleaner for mobile apps.\n\nWhich path are you choosing?`,
+    `Tailwind CSS vs pure CSS Modules for scalable design systems?\n\nTailwind gives insane shipping velocity, but CSS modules keep styles fully scoped.\n\nWhat's your production stack?`,
+    `Vercel serverless vs $40/mo self-hosted Hetzner server for early SaaS?\n\nConvenience vs raw compute power.\n\nWhere do you host your side projects?`
   ];
   return debates[Math.floor(Math.random() * debates.length)];
 }
@@ -428,20 +439,20 @@ function generateFallbackDebateTweet() {
 function generateFallbackDevJournal(activityData) {
   if (activityData && activityData.length > 0) {
     const topRepo = activityData[0].repo || "core apps";
-    return `Shipped a major round of updates to ${topRepo} today ⚡️\n\n• Pushed code refactoring and architecture polish\n• Fixed edge cases & optimized data flows\n• Cleaned up component exports\n\nProof of work > talk. Back to building 🚀 #buildinpublic #webdev`;
+    return `Shipped a major round of updates to ${topRepo} today.\n\nRefactored core state logic, eliminated unnecessary re-renders, and polished component loading states.\n\nBack to building.`;
   }
-  return `Deep focus engineering day 🛠️\n\nSpent today refactoring core app architecture & polishing UI component state across full-stack Next.js projects.\n\nClean code & buttery smooth performance. Back to shipping ⚡️ #buildinpublic #webdev`;
+  return `Deep focus day in the IDE.\n\nSpent today refactoring data-fetching flows and trimming down client bundle size across full-stack Next.js routes.\n\nClean code feels so good.`;
 }
 
 /**
- * Sanitizes generated text for X: strips markdown code fences, backticks, and outer quotes.
+ * Sanitizes generated text for X: strips markdown code fences, backticks, outer quotes, and leftover hashtags.
  */
 function sanitizeTextForX(text) {
   if (!text) return "";
   let clean = text.trim();
 
-  // Strip wrapping double quotes
-  if (clean.startsWith('"') && clean.endsWith('"')) {
+  // Strip wrapping double quotes or single quotes
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
     clean = clean.substring(1, clean.length - 1);
   }
 
@@ -452,8 +463,12 @@ function sanitizeTextForX(text) {
   // Remove single inline backticks (e.g. `code` -> code)
   clean = clean.replace(/`([^`]+)`/g, "$1");
 
-  // Remove markdown bold markers (**text** -> text)
+  // Remove markdown bold/italic markers (**text** -> text, *text* -> text)
   clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
+  clean = clean.replace(/\*([^*]+)\*/g, "$1");
+
+  // Remove trailing hashtags if any were generated (e.g. #buildinpublic)
+  clean = clean.replace(/#[a-zA-Z0-9_]+/g, "").trim();
 
   return clean.trim();
 }
